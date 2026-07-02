@@ -80,6 +80,8 @@ dependencies {
 	implementation "curse.maven:jei-238222:4393461"
     implementation "curse.maven:crafttweaker-239197:5486112"
     implementation "curse.maven:mekanism-268560:2835175"
+    implementation "curse.maven:gregtech-557242:5519022"
+    implementation "curse.maven:groovyscript-687577:7925117"
 }
 
 // Example for how to get properties into the manifest for reading by the runtime..
