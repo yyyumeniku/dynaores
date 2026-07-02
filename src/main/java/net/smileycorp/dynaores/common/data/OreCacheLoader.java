@@ -2,12 +2,15 @@ package net.smileycorp.dynaores.common.data;
 
 import com.google.common.io.Files;
 import net.minecraft.item.ItemStack;
+import net.smileycorp.dynaores.common.ConfigHandler;
 import net.smileycorp.dynaores.common.DynaOresLogger;
 
 import java.awt.*;
 import java.io.File;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.Scanner;
 
 public class OreCacheLoader {
@@ -41,6 +44,7 @@ public class OreCacheLoader {
         try {
             file.createNewFile();
             try(FileWriter output = new FileWriter(file)) {
+                output.append("#F:").append(computeFingerprint()).append(System.lineSeparator());
                 for (OreEntry entry : OreHandler.INSTANCE.getOres()) {
                     Color colour = new Color(entry.getColour());
                     StringBuilder builder = new StringBuilder(entry.getName() + "-" + "0x" + String.format("%H", ((colour.getRed() & 0xFF) << 16)
@@ -64,11 +68,50 @@ public class OreCacheLoader {
         if (!cacheExists()) return;
         DynaOresLogger.logInfo("Ore cache exists, loading from file " +  file.getAbsolutePath());
         try (Scanner scanner = new Scanner(file)) {
+            if (scanner.hasNext()) {
+                String firstLine = scanner.nextLine();
+                if (firstLine.startsWith("#F:")) {
+                    String fp = firstLine.substring(3);
+                    String currentFp = computeFingerprint();
+                    if (!fp.equals(currentFp)) {
+                        DynaOresLogger.logInfo("Cache fingerprint mismatch (mods or config changed), rebuilding...");
+                        scanner.close();
+                        file.delete();
+                        return;
+                    }
+                } else {
+                    DynaOresLogger.logInfo("Legacy cache without fingerprint, rebuilding...");
+                    scanner.close();
+                    file.delete();
+                    return;
+                }
+            }
             while (scanner.hasNext()) OreHandler.INSTANCE.tryRegisterCustom(scanner.nextLine());
             loaded = true;
             DynaOresLogger.logInfo("Loaded ore cache");
         } catch (Exception e) {
             DynaOresLogger.logError("Failed to read ores cache", e);
+        }
+    }
+
+    private String computeFingerprint() {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            String config = String.join(",",
+                    String.valueOf(ConfigHandler.invertBlacklist),
+                    String.join("|", ConfigHandler.blacklist),
+                    String.join("|", ConfigHandler.ignoredWords),
+                    String.join("|", ConfigHandler.detectedMaterials),
+                    String.join("|", ConfigHandler.customOres)
+            );
+            md.update(config.getBytes(StandardCharsets.UTF_8));
+            byte[] digest = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b & 0xFF));
+            return sb.toString();
+        } catch (Exception e) {
+            DynaOresLogger.logError("Failed to compute cache fingerprint", e);
+            return "";
         }
     }
 

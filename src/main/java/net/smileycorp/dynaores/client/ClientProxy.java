@@ -56,6 +56,8 @@ public class ClientProxy extends CommonProxy {
         }
         //refresh textures and models
         FMLClientHandler.instance().refreshResources(VanillaResourceType.TEXTURES, VanillaResourceType.MODELS);
+        //auto-export cache
+        OreCacheLoader.INSTANCE.exportCache();
     }
 
     @SubscribeEvent

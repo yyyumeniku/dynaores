@@ -15,11 +15,11 @@ public class ConfigHandler {
     public static boolean rawOreBlocks = true;
     public static boolean addSmelting = true;
 
-    private static String[] blacklist = {
+    public static String[] blacklist = {
             "AncientDebris"
     };
     
-    private static String[] ignoredWords = {
+    public static String[] ignoredWords = {
             "Endstone",
             "Netherrack"
     };
