@@ -20,8 +20,10 @@ import net.minecraftforge.client.model.IModel;
 import net.minecraftforge.client.model.ItemLayerModel;
 import net.minecraftforge.client.model.ModelLoaderRegistry;
 import net.minecraftforge.client.resource.ISelectiveResourceReloadListener;
+import net.minecraftforge.fml.common.Loader;
 import net.smileycorp.dynaores.common.Constants;
 import net.smileycorp.dynaores.common.DynaOresLogger;
+import net.smileycorp.dynaores.common.GTCEuIntegration;
 import net.smileycorp.dynaores.common.block.BlockRawOre;
 import net.smileycorp.dynaores.common.data.OreEntry;
 import net.smileycorp.dynaores.common.data.OreHandler;
@@ -39,7 +41,9 @@ public class OreModelLoader implements ICustomModelLoader, ISelectiveResourceRel
     protected final List<String> itemTextures = Lists.newArrayList();
     protected final List<String> blockTextures = Lists.newArrayList();
     private final OreModelOverrides overrides = new OreModelOverrides();
-    
+
+    private static final List<String> SUPPORTED_ICON_SETS = Lists.newArrayList("metallic", "shiny", "diamond");
+
     public int getColourFor(ItemStack stack, OreEntry entry) {
         String name = entry.getName().toLowerCase(Locale.US);
         if (itemTextures.contains(name)) {
@@ -87,6 +91,24 @@ public class OreModelLoader implements ICustomModelLoader, ISelectiveResourceRel
         itemTextures.clear();
         Minecraft mc = Minecraft.getMinecraft();
         IResourceManager rm = mc.getResourceManager();
+        //register template item textures
+        map.registerSprite(Constants.loc("items/material_sets/dull/raw_ore"));
+        map.registerSprite(Constants.loc("items/material_sets/dull/raw_ore_secondary"));
+        map.registerSprite(Constants.loc("items/material_sets/metallic/raw_ore"));
+        map.registerSprite(Constants.loc("items/material_sets/metallic/raw_ore_secondary"));
+        map.registerSprite(Constants.loc("items/material_sets/shiny/raw_ore"));
+        map.registerSprite(Constants.loc("items/material_sets/shiny/raw_ore_secondary"));
+        map.registerSprite(Constants.loc("items/material_sets/diamond/raw_ore"));
+        map.registerSprite(Constants.loc("items/material_sets/diamond/raw_ore_secondary"));
+        //register template block textures
+        map.registerSprite(Constants.loc("blocks/material_sets/dull/raw_ore_block"));
+        map.registerSprite(Constants.loc("blocks/material_sets/dull/raw_ore_block_secondary"));
+        map.registerSprite(Constants.loc("blocks/material_sets/metallic/raw_ore_block"));
+        map.registerSprite(Constants.loc("blocks/material_sets/metallic/raw_ore_block_secondary"));
+        map.registerSprite(Constants.loc("blocks/material_sets/shiny/raw_ore_block"));
+        map.registerSprite(Constants.loc("blocks/material_sets/shiny/raw_ore_block_secondary"));
+        map.registerSprite(Constants.loc("blocks/material_sets/diamond/raw_ore_block"));
+        map.registerSprite(Constants.loc("blocks/material_sets/diamond/raw_ore_block_secondary"));
         //register item textures
         map.registerSprite(Constants.loc("items/fallback"));
         for (String name : OreHandler.INSTANCE.getOreNames()) {
@@ -127,16 +149,33 @@ public class OreModelLoader implements ICustomModelLoader, ISelectiveResourceRel
         try {
             boolean block = location.getResourcePath().contains("block");
             String[] split = location.getResourcePath().split("\\.")[0].split("/");
-            String name = block ? "blocks/" + split[split.length - 1].replace("_block", "") : "items/" + split[split.length - 1];
+            String name = split[split.length - 1].replace("_block", "");
+            String nameLower = name.toLowerCase(Locale.US);
+
+            if (Loader.isModLoaded("gregtech") && GTCEuIntegration.isGTCEuMaterial(nameLower)) {
+                String iconSet = GTCEuIntegration.getIconSetName(nameLower);
+                if (block) {
+                    DynaOresLogger.logInfo("Loading GTCEu block model for " + name);
+                    return ModelLoaderRegistry.getModel(Constants.loc("block/raw_ore_block"))
+                            .retexture(ImmutableMap.of("all",
+                                    Constants.locStr("blocks/material_sets/" + iconSet + "/raw_ore_block")));
+                } else {
+                    DynaOresLogger.logInfo("Loading GTCEu item model for " + name + " with icon set " + iconSet);
+                    String modelVariant = "dull".equals(iconSet) ? "raw_ore" : "raw_ore_" + iconSet;
+                    return ModelLoaderRegistry.getModel(Constants.loc("item/" + modelVariant));
+                }
+            }
+
+            String texName = block ? "blocks/" + name : "items/" + name;
             try {
-                mngr.getAllResources(Constants.loc("textures/" + name + ".png"));
+                mngr.getAllResources(Constants.loc("textures/" + texName + ".png"));
             } catch (Exception e) {
-                name = block ? "blocks/fallback" : "items/fallback";
+                texName = block ? "blocks/fallback" : "items/fallback";
             }
             DynaOresLogger.logInfo("Loading model for " + location);
             return block ? ModelLoaderRegistry.getModel(Constants.loc("block/raw_ore_block"))
-                    .retexture(ImmutableMap.of("all", Constants.locStr(name))) :
-                    new ItemLayerModel(ImmutableList.of(Constants.loc(name)), overrides);
+                    .retexture(ImmutableMap.of("all", Constants.locStr(texName))) :
+                    new ItemLayerModel(ImmutableList.of(Constants.loc(texName)), overrides);
         } catch (Exception e) {
             DynaOresLogger.logError("Failed loading model " + location, e);
             return ModelLoaderRegistry.getMissingModel();
@@ -146,12 +185,20 @@ public class OreModelLoader implements ICustomModelLoader, ISelectiveResourceRel
     public int getColour(ItemStack stack, int index) {
         OreEntry entry = ((IOreItem) stack.getItem()).getEntry();
         String name = entry.getName().toLowerCase(Locale.US);
+        if (Loader.isModLoaded("gregtech") && GTCEuIntegration.isGTCEuMaterial(name)) {
+            if (index == 0 || index == 1) return GTCEuIntegration.getMaterialRGB(name);
+            return 0xFFFFFFFF;
+        }
         return !(stack.getItem() instanceof ItemBlockRawOre ? blockTextures : itemTextures).contains(name) ? entry.getColour() : 0xFFFFFFFF;
     }
     
     public int getColour(IBlockState state, IBlockAccess world, BlockPos pos, int index) {
         OreEntry entry = ((BlockRawOre) state.getBlock()).getEntry();
         String name = entry.getName().toLowerCase(Locale.US);
+        if (Loader.isModLoaded("gregtech") && GTCEuIntegration.isGTCEuMaterial(name)) {
+            if (index == 0) return GTCEuIntegration.getMaterialRGB(name);
+            return 0xFFFFFFFF;
+        }
         return !blockTextures.contains(name) ? entry.getColour() : 0xFFFFFFFF;
     }
     
