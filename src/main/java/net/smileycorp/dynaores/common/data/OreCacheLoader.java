@@ -105,6 +105,11 @@ public class OreCacheLoader {
                     String.join("|", ConfigHandler.customOres)
             );
             md.update(config.getBytes(StandardCharsets.UTF_8));
+            StringBuilder modList = new StringBuilder();
+            for (net.minecraftforge.fml.common.ModContainer mod : net.minecraftforge.fml.common.Loader.instance().getActiveModList()) {
+                modList.append(mod.getModId()).append("@").append(mod.getVersion()).append(";");
+            }
+            md.update(modList.toString().getBytes(StandardCharsets.UTF_8));
             byte[] digest = md.digest();
             StringBuilder sb = new StringBuilder();
             for (byte b : digest) sb.append(String.format("%02x", b & 0xFF));
