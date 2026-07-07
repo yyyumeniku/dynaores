@@ -21,8 +21,16 @@ public class ItemRawOre extends Item implements IOreItem {
     
     @Override
     public String getItemStackDisplayName(ItemStack stack) {
-        return I18n.translateToLocalFormatted("items.dynaores.RawOre.name",
-                I18n.translateToLocal(entry.getLocalizedName()).replace("Ingot", "").trim()).trim();
+        String name = I18n.translateToLocal(entry.getLocalizedName())
+                .replace("Ingot", "")
+                .replace("Dust", "")
+                .replace("Gem", "")
+                .replace("Crushed", "")
+                .replace("Purified", "")
+                .replace("Centrifuged", "")
+                .replace("Ore", "")
+                .trim();
+        return I18n.translateToLocalFormatted("items.dynaores.RawOre.name", name).trim();
     }
     
     @Override

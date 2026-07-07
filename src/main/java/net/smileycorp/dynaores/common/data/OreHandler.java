@@ -1,6 +1,7 @@
 package net.smileycorp.dynaores.common.data;
 
 import com.google.common.collect.Maps;
+import gregtech.api.unification.material.Material;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.JsonToNBT;
@@ -9,11 +10,14 @@ import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.oredict.OreDictionary;
 import net.smileycorp.dynaores.common.ConfigHandler;
 import net.smileycorp.dynaores.common.CraftTweakerIntegration;
 import net.smileycorp.dynaores.common.DynaOresLogger;
+import net.smileycorp.dynaores.common.GTCEuIntegration;
 import net.smileycorp.dynaores.common.item.IOreItem;
+import com.google.common.collect.Lists;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -69,7 +73,15 @@ public class OreHandler {
                 type = material;
                 break;
             }
-            if (type.isEmpty()) return;
+            if (type.isEmpty() && Loader.isModLoaded("gregtech") && GTCEuIntegration.isGTCEuMaterial(name)) {
+                Material mat = GTCEuIntegration.getGTCEuMaterials().get(name.toLowerCase());
+                ItemStack resolved = mat != null ? GTCEuIntegration.getMaterialStack(mat) : ItemStack.EMPTY;
+                if (resolved.isEmpty()) resolved = stack;
+                materials = Lists.newArrayList(resolved);
+                type = "gtceu";
+            } else if (type.isEmpty()) {
+                return;
+            }
         }
         if (materials != null && materials.isEmpty()) return;
         OreEntry entry = new GeneratedOreEntry(name, isMaterial ? stack : materials.get(0));
@@ -77,6 +89,18 @@ public class OreHandler {
         //put a copy in the entry map if the name is different from the entry, so we don't have to keep iterating through the format list
         if (!s.equals(name)) dupeEntries.put(s, entry);
         DynaOresLogger.logInfo("Registered ore " + name);
+        if (ConfigHandler.addSmelting) {
+            ItemStack smeltResult = ItemStack.EMPTY;
+            if ("gtceu".equals(type)) {
+                Material mat = GTCEuIntegration.getGTCEuMaterials().get(name.toLowerCase());
+                if (mat != null) smeltResult = GTCEuIntegration.getSmeltResult(mat);
+            } else {
+                smeltResult = isMaterial ? stack : materials.get(0);
+            }
+            if (!smeltResult.isEmpty()) {
+                GameRegistry.addSmelting(entry.getItem(), smeltResult, 0.5f);
+            }
+        }
         if (Loader.isModLoaded("crafttweaker") && CraftTweakerIntegration.isRunning()) CraftTweakerIntegration.refreshItems();
     }
 
@@ -88,7 +112,7 @@ public class OreHandler {
         int colour = 0xFFFFFFFF;
         if (split.length > 1) {
             try {
-                colour = Integer.decode(split[1]);
+                colour = Integer.decode(split[1]) | 0xFF000000;
             } catch (Exception e) {}
         }
         entries.put(name, new CustomOreEntry(name, colour, split.length > 2 ?
@@ -154,6 +178,11 @@ public class OreHandler {
     
     public Collection<String> getOreNames() {
         return entries.keySet();
+    }
+
+    public void registerEntry(String name, OreEntry entry) {
+        entries.put(name, entry);
+        DynaOresLogger.logInfo("Registered ore " + name);
     }
     
 }

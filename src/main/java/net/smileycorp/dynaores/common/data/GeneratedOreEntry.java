@@ -2,19 +2,16 @@ package net.smileycorp.dynaores.common.data;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.translation.I18n;
-import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.smileycorp.dynaores.client.OreModelLoader;
-import net.smileycorp.dynaores.common.ConfigHandler;
 
 public class GeneratedOreEntry extends OreEntry {
     
     private final ItemStack material;
-    private int colour = 0;
+    private volatile int colour = 0;
     
     public GeneratedOreEntry(String name, ItemStack material) {
         super(name);
         this.material = material;
-        if (ConfigHandler.addSmelting) GameRegistry.addSmelting(item, material, 0.5f);
     }
 
     @Override

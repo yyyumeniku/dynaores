@@ -22,6 +22,7 @@ import net.smileycorp.dynaores.common.command.*;
 import net.smileycorp.dynaores.common.data.OreCacheLoader;
 import net.smileycorp.dynaores.common.data.OreEntry;
 import net.smileycorp.dynaores.common.data.OreHandler;
+import net.smileycorp.dynaores.common.ConfigHandler;
 
 import java.util.List;
 import java.util.Random;
@@ -38,6 +39,19 @@ public class CommonProxy {
     }
 
     public void postInit(FMLPostInitializationEvent event) {
+        if (Loader.isModLoaded("gregtech")) {
+            GTCEuIntegration.finalizeMaterials();
+            GTCEuIntegration.registerRecipes();
+        }
+        if (!OreCacheLoader.INSTANCE.isActive()) {
+            for (String oreName : OreDictionary.getOreNames()) {
+                if (!oreName.startsWith("ore")) continue;
+                if (oreName.length() <= 3) continue;
+                java.util.List<ItemStack> stacks = OreDictionary.getOres(oreName);
+                if (stacks.isEmpty()) continue;
+                OreHandler.INSTANCE.tryRegister(oreName, stacks.get(0));
+            }
+        }
         if (!ConfigHandler.addSmelting) return;
         for (OreEntry entry : OreHandler.INSTANCE.getOres()) {
             if (!entry.isCustom()) continue;
@@ -69,6 +83,9 @@ public class CommonProxy {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public void oreDict(OreDictionary.OreRegisterEvent event) {
         if (OreCacheLoader.INSTANCE.isActive()) return;
+        if (Loader.isModLoaded("gregtech") && event.getName().startsWith("ore")) {
+            GTCEuIntegration.tryAddMaterial(event.getOre(), event.getName());
+        }
         OreHandler.INSTANCE.tryRegister(event.getName(), event.getOre());
     }
 
